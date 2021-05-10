@@ -1,0 +1,823 @@
+include:
+  - docassemble.AssemblyLine:al_package.yml
+  - docassemble.ILAO:ilao-interview-framework.yml
+  - docassemble.ILAO:shared-basic-questions.yml
+---
+metadata:
+  title: Appearance
+  short title: Appearance
+  comment: This program helps you tell the court and the other parties that you are participating in a court case.
+---
+objects:
+  - users: ALPeopleList.using(there_are_any=True)
+  - users[i].lawyer: ALIndividual
+  - other_parties: ALPeopleList.using(there_are_any=True)
+  - other_parties[i].lawyer: ALIndividual
+  - delivery_parties: ALlPeopleList.using(there_are_any=True)
+  - delivery_parties[i].lawyer: ALIndividual
+  - court_list: ALCourtLoader.using(file_name='docassemble.ILAO:data/sources/il_courts.xlsx')
+  - court_emails: DAList #dummy variable definition
+---
+code: |
+  al_form_type = 'existing_case'
+---
+# Road map
+sections:
+  - review_answers: Review your answers
+---
+# interview order block
+mandatory: True
+code: |
+  ilao_easy_form_title = "Appearance"
+  ilao_easy_form_url = "https://www.illinoislegalaid.org/legal-information/appearance"
+  form_name = "Appearance"
+  sees_nav_bar
+  set_progress(5)
+  instructions
+  whats_next
+  if accept == False:
+    not_legal_advice
+  nav.set_section('review_answers')
+  set_progress(15)
+  lawsuit_information
+  user_ask_role
+  users.gather()
+  users[0].name
+  set_progress(30)
+  other_parties.gather()
+  trial_court
+  case_number
+  set_progress(50)
+  is_trial_by_jury
+  
+  delivery_intro
+  for person in delivery_parties:
+    if person.is_represented:
+      person.lawyer.name.first
+    person.address.address
+    if person.knows_delivery_method:
+      person.hand_delivery
+      person.delivery_date
+  set_progress(70)
+      
+  users[0].address.address
+  users[0].phone_number
+  if email_notice == True:
+    users[0].email
+  set_progress(90)
+  preview_form
+  e_signature
+
+  set_progress(100)
+  get_docs_screen
+  user.email
+  if email_sent_ok == True:
+    ending_screen
+  ending_screen
+---
+id: welcome
+question: |
+  Appearance
+subquestion: |
+  Welcome to Illinois Legal Aid Online's **Appearance** Easy Form.
+
+  This program creates a form that tells the court and the other parties that you are participating in a court case.
+  
+  Learn about [Responding to a lawsuit](https://www.illinoislegalaid.org/node/32236).
+field: sees_nav_bar
+---
+id: instructions
+continue button field: instructions
+question: |
+  Instructions
+subquestion: |
+  To use this program you will need: 
+
+  * Names and addresses of the other parties, 
+  * Names and addresses of the other parties’ lawyers, and 
+  * The court case number. 
+
+  You can find this information on other court papers you have about this case. 
+
+  Set aside :stopwatch: 5 to 10 minutes to finish this program. You can login and save your work to return to later. 
+
+  Click on **{green words :question-circle:}** to learn what they mean. Click **Help** to learn more about a question.
+help: |
+  This is an example help page. Click **Back to question** to go to the previous screen and continue the interview.
+---
+id: whats next
+continue button field: whats_next
+question: |
+  After you finish this program
+subquestion: |
+  After you download your ${ form_name }, you must file it with the court. This program does not file your ${ form_name } for you.
+  
+  Read the *How to File an Appearance* instructions you can download at the end of this program. 
+---
+id: accept terms
+question: |
+  Not legal advice
+subquestion: |
+  NOTE: This program does not provide legal advice. It does not take the place of advice from a lawyer.
+
+  Using this program does not create an attorney-client relationship between you and Illinois Legal Aid Online or its employees.
+
+  Do you understand and accept the [terms of use](https://www.illinoislegalaid.org/about/terms-of-use)? 
+field: accept
+choices:
+  - I understand and accept the terms of use.: True
+  - I do not accept the terms of use.: False
+---
+id: not legal advice
+event: not_legal_advice
+question: |
+  Sorry
+subquestion: |
+  You cannot continue unless you understand this program does not give legal advice and accept the [terms of use](https://www.illinoislegalaid.org/about/terms-of-use).
+
+  This program will only help you complete the legal documents you want. By providing this program we are not giving you legal advice. Your use of this program does not mean that Illinois Legal Aid Online will provide you with a lawyer or with any individual legal help.
+
+  If you have questions or concerns about your legal problem and want legal advice you should talk to a lawyer. If you would like help finding free or low-cost legal services in your area, use [Get Legal Help](https://www.illinoislegalaid.org/get-legal-help).
+
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: lawsuit information
+continue button field: lawsuit_information
+question: |
+  Lawsuit information
+subquestion: |
+  If you received a Complaint and Summons, you have been sued. You need to tell the court you want to participate in your case. In some cases, you need to file an **{Answer :question-circle:}** to respond to the Complaint.
+  
+  If you do respond, you can be found in default, and the court can rule against you. In some cases, like evictions, you do not need to file an Appearance. Instead, you can attend your court hearing.
+  
+  Learn more about [Responding to a lawsuit](https://www.illinoislegalaid.org/node/32236).
+  
+    If you would like help finding free or low-cost legal services in your area, use [Get Legal Help](https://www.illinoislegalaid.org/get-legal-help).
+help:
+  label: |
+    What if I started the lawsuit?
+  content: |
+    You can also file an Appearance if you started the lawsuit. Usually, you only need to file an Appearance if you had a lawyer in the case before, but now you want to represent yourelf.
+---
+
+# modified to allow co-parties to be person or business
+# add to basic questions
+sets:
+  - users[i].name.first
+id: other users names
+question: |
+  % if al_form_type in ['starts_case','existing_case','appeal']:
+  What is the name of the ${ ordinal(i) } person who is part of the case with you?
+  % else:
+  What is the name of the ${ ordinal(i) } person who is adding their name to
+  this form with you?
+  % endif
+fields:
+  - code: |
+      users[i].name_fields(person_or_business='unsure')
+---
+# modified other opposing parties question
+# add to basic questions
+id: any other opposing parties
+question: |
+  % if users==plaintiffs:
+  Is there another **defendant** or **respondent** in this matter?
+  % else:
+  Is there another **plaintiff** or **petitioner** in this matter?
+  % endif
+subquestion: |
+  % if len(other_parties.elements) >= 1:  
+  So far you have told us about ${comma_and_list(other_parties.complete_elements())}.
+  % endif
+yesno: other_parties.there_is_another  
+---
+sets:
+  - other_parties[i].name.first
+id: names of opposing parties
+question: |
+  % if users==plaintiffs:
+  Name of ${ ordinal(i) } **defendant** or **respondent** in this matter
+  % else:
+  Name of ${ ordinal(i) } **plaintiff** or **petitioner** in this matter
+  % endif
+fields:
+  - code: |
+      other_parties[i].name_fields(person_or_business='unsure')
+---
+code: |
+  allowed_courts = ['Circuit']
+---
+id: trial court county
+continue button field: case_county
+question: |
+  In which county was this case filed?
+fields:
+  - no label: trial_court_index
+    code: |
+      #court_list.filter_courts(allowed_courts, column='department')
+      court_list._load_courts()['address_county'].items()
+---
+depends on:
+  - trial_court_index
+code: |
+  trial_court = court_list.as_court('trial_court', trial_court_index)
+  # work around: use assignment instead of this variable
+  #trial_court.geolocate()
+  # use this in the attachment block: trial_court.address.county
+---
+id: case number
+question: |
+  What is the case number?
+fields:
+  - Case number: case_number
+---
+id: trial by jury
+question: |
+  Who do you want to decide your case?
+subquestion: |
+  Note: You do not have a right to a jury trial in every case. There can be an additional fee for a jury trial.
+field: is_trial_by_jury
+choices:
+  - A judge: False
+  - A judge and jury: True
+---
+id: phone number
+question: |
+  What is your phone number?
+fields:
+  - Phone: users[0].phone_number
+    required: False
+---
+id: notice by email
+question: |
+  Do you want to receive information about this case by email?
+subquestion: |
+  You must list an email address so the court and other parties can contact you about this case.
+yesno: email_notice
+---
+id: email address
+question: |
+  What is your email address?
+fields:
+  - Email address: users[0].email    
+    datatype: email
+    required: False
+---
+id: e-signature
+question: |
+  Do you want to add your e-signature to your ${ form_name }?
+subquestion: |
+  If you do not add your e-signature, you can sign your paper form later.
+yesno: e_signature
+---
+code: |
+  delivery_parties = DAList("delivery_parties", elements = other_parties + users[1:])
+  # changed order to keep it a DAList
+  # .pop(0) will remove user (self) from delivery party list
+  #delivery_parties.pop(0)
+---
+id: delivery intro
+continue button field: delivery_intro
+question: |
+  Send your ${ form_name } to all other parties
+subquestion: |
+  These are the other parties in this case: ${comma_and_list(delivery_parties)}.
+
+  You must send a copy of your ${ form_name } to each of them.
+
+  If someone in the case has a lawyer, you must send it to the lawyer.
+---
+id: has lawyer
+generic object: ALIndividual
+question: |
+  Does ${ x } have a lawyer in this case?
+field: x.is_represented
+choices:
+  - Yes: True
+  - No: False
+  - I don't know: False 
+---
+id: add lawyer
+generic object: ALIndividual
+question: |
+  Who is  ${ x.possessive("lawyer") }?
+fields:
+  - First name: x.lawyer.name.first
+  - Middle name: x.lawyer.name.middle
+    required: False
+  - Last name: x.lawyer.name.last
+  - Suffix: x.lawyer.name.suffix
+    code: |
+      name_suffix()
+    required: False  
+---
+id: delivery party address
+sets:
+  - x.address.address
+  - x.address.city
+  - x.address.zip
+generic object: ALIndividual
+question: |
+  % if x.is_represented:
+  What is ${ x.lawyer.possessive("address") }?
+  % else:
+  What is ${ x.possessive("address") }?
+  % endif
+fields:
+  - Street address: x.address.address
+    address autocomplete: True
+  - Address line 2: x.address.unit
+    required: False
+  - City: x.address.city
+  - State: x.address.state
+    code: |
+      states_list()
+    default: IL      
+  - ZIP code: x.address.zip
+---
+id: knows delivery method
+generic object: ALIndividual
+question: |
+  % if x.is_represented:
+  Do you know **how** and **when** you will send your ${ form_name } to ${ x.lawyer }?
+  % else:
+  Do you know **how** and **when** you will send your ${ form_name } to ${ x }?
+  % endif
+subquestion: |
+  If you do not know this now, you can add it to the Proof of Delivery section of your forms later.
+field: x.knows_delivery_method
+choices:
+  - Yes: True
+  - No: False
+---
+id: delivery method
+generic object: ALIndividual
+question: |
+  % if x.is_represented:
+  How will you send your ${ form_name } to ${ x.lawyer }?
+  % else:
+  How will you send your ${ form_name } to ${ x }?
+  % endif
+fields:
+  - Hand delivery: x.hand_delivery
+    datatype: yesnowide
+  - US mail: x.mail_delivery
+    datatype: yesnowide
+  - Mailbox location or Post Office address: x.mail_delivery_location
+    show if: 
+      variable: x.mail_delivery
+      is: True
+    required: False
+  - Commercial delivery company (like UPS or FedEx): x.carrier_delivery
+    datatype: yesnowide
+  - Delivery company name: x.carrier_name
+    show if: 
+      variable: x.carrier_delivery
+      is: True
+    required: False
+  - Delivery company address: x.carrier_location
+    show if: 
+      variable: x.carrier_delivery
+      is: True
+    required: False
+  - E-filing system: x.efm_delivery
+    datatype: yesnowide
+  - Email: x.email_delivery
+    datatype: yesnowide
+  - Email address: x.email
+    datatype: email
+    show if: 
+      variable: x.email_delivery
+      is: True
+    required: False
+  - Mail from a prison or jail: x.jail_delivery
+    datatype: yesnowide
+  - Name of prison or jail: x.jail_name
+    show if: 
+      variable: x.jail_delivery
+      is: True
+    required: False
+help: 
+  label: |
+    What is the e-filing system?
+  content: |
+    The court's e-filing system could be an electronic filing manager (EFM) or an approved electronic filing service provider (EFSP).
+---
+id: delivery time
+generic object: ALIndividual
+question: |
+  % if x.is_represented:
+  When will you send your ${ form_name } to ${ x.lawyer }?
+  % else:
+  When will you send your ${ form_name } to ${ x }?
+  % endif
+fields:
+  - Date: x.delivery_date
+    datatype: date
+    default: ${ today().format("yyyy-MM-dd") }
+    min: ${ today().format("yyyy-MM-dd") }
+  - Time: x.delivery_time
+  - AM/PM: x.delivery_is_am
+    datatype: radio
+    choices:
+      - AM: True
+      - PM: False
+---
+#id: preview
+#continue button field: preview_form
+#reconsider:
+#  - letter
+#question: |
+#  Preview
+#subquestion: |
+#  Great job! Your forms are almost ready.
+#
+#  Click the picture of your forms to preview in a new window.
+#  
+#  You can click **< Back** to make changes, or click **Review your answers** to edit your answers.
+#  
+#  ${ pdf_concatenate(whats_next, letter, filename="collection_proof_letter_instructions.pdf") }
+
+---
+id: preview
+question: |
+  Preview
+subquestion: |
+  Here is a preview of your Appearance.   
+  
+  ${ al_user_bundle.as_pdf(key='preview') }
+
+  Click the image to open it in a new tab. Click the "Make changes" button
+  to edit your answers.
+
+  ${ action_button_html(url_action('review_answers'), label='Make changes', color='info') }
+  
+  Remember to come back to this window to continue and sign your form.
+continue button field: preview_form  
+
+#---
+#id: get docs screen
+##continue button field: get_docs_screen
+#reconsider: letter
+#question: |
+#  Download
+#subquestion: |
+#  After you get your letter:
+#
+#  1. Sign it,
+#  2. Make a copy, and 
+#  3. Send it by **{Certified Mail :question-circle:}**.
+#
+#  Download your forms
+#  
+#  ${ docs_list([ { "label": 'Instructions', "doc": whats_next } , { "label": 'Collection proof letter', "doc": letter } ]) } 
+#
+#css: ${ docs_list_css() }
+#field: get_docs_screen
+#buttons:
+#  - ${fa_icon("envelope", color="#0079d0", size="sm")} Email your forms: continue
+---
+id: get docs screen
+#event: illinois_appearance_download
+question: |
+  Download
+subquestion: |
+  
+  Thank you, ${users[0]}. Your forms are ready to download and deliver.
+
+  View, download and send your forms below. Click the "Make changes" button to fix any mistakes.
+
+  ${ action_button_html(url_action('review_answers'), label='Make changes', color='info') }
+
+  ${ al_user_bundle.download_list_html() }
+
+  Download your forms - ILAO
+
+  This program does not file your Appearance with the court or deliver it to other parties in your case. You will need to do this yourself.
+  
+  ${ docs_list([ { "label": 'Appearance', "doc": al_user_bundle.as_pdf(key='preview') } ]) } 
+
+css: ${ docs_list_css() }
+field: get_docs_screen
+buttons:
+  - ${fa_icon("envelope", color="#0079d0", size="sm")} Email your forms: continue
+
+---
+id: email forms
+question: |
+  Email your forms
+subquestion: |
+  Where should we email your forms?
+  
+  This program does not file your Appearance with the court or deliver it to other parties in your case. You will need to do this yourself.
+fields:
+  - Email address: user.email
+    datatype: email
+continue button label: Send
+---
+template: forms_email
+subject: |
+  Appearance forms
+content: |
+  Your forms are attached.
+  
+  Thanks for using ILAO Easy Forms!
+  
+  [Illinois Legal Aid Online](https://www.illinoislegalaid.org)
+---
+code: |
+  email_sent_ok = send_email(to=user.email, template=forms_email, attachments=[ al_user_bundle.as_pdf(key='preview')])
+---
+id: email ending screen
+event: ending_screen
+question: |
+  Email sent
+subquestion: |
+  Your forms were sent to **${ user.email }**.
+  
+  If you don’t see an email from no-reply@illinoislegalaid.org, check your spam folder.
+  
+  This program does not file your Appearance with the court or deliver it to other parties in your case. You will need to do this yourself.
+  
+  Thank you for using ILAO Easy Forms!
+buttons:
+  - Delete answers and restart: restart
+  - Exit: exit
+
+
+
+
+#---
+#attachment:
+#  name: Instructions
+#  variable name: whats_next
+#  filename: instructions_collection_proof_letter
+#  docx template file: collection_proof_letter_instructions.docx
+#---
+#attachment:
+#  name: Collection proof letter
+#  variable name: letter
+#  filename: collection_proof_letter
+#  docx template file: collection_proof_letter.docx
+
+---
+objects:
+  - illinois_appearance_attachment: ALDocument.using(title="This program helps you tell the court and the other parties that you are participating in a court case.", filename="appearance_acrobat_pro_edit_4.pdf", enabled=True, has_addendum=False)
+---
+objects:
+  - al_user_bundle: ALDocumentBundle.using(elements=[illinois_appearance_attachment], filename="illinois_appearance.pdf", title="All forms to download for your records")
+  - al_court_bundle: ALDocumentBundle.using(elements=[illinois_appearance_attachment], filename="illinois_appearance.pdf", title="All forms to download for your records")
+---
+#attachment:
+#  variable name: illinois_appearance_instructions
+#  name: illinois_appearance_instructions
+#  filename: appearance-instructions
+#  skip undefined: True
+#  pdf template file: appearance_instructions.pdf
+#  fields:
+#    -  "empty": ${ "" }
+---
+attachment:
+  variable name: illinois_appearance_attachment[i]
+  name: illinois_appearance_attachment
+  filename: illinois-appearance
+  skip undefined: True
+  pdf template file: appearance_acrobat_pro_edit_4.pdf
+  fields:
+      - "trial_court_county": ${ trial_court.address.county.upper() }
+      - "plaintiffs": ${ plaintiffs }
+      - "defendants": ${ defendants }
+      - "user__1": ${ users[0] }
+      - "user__2": ${ users[0] }
+      - "user__3": ${ users[0] }
+      - "user_mail_address_line_one__1": ${ users[0].address.line_one() }
+      - "user_mail_address_line_one__2": ${ users[0].address.line_one() }
+      - "user_mail_address_city_state_zip__1": ${ users[0].address.line_two() }
+      - "user_mail_address_city_state_zip__2": ${ users[0].address.line_two() }
+      - "user_phone_number__1": ${ users[0].phone_number }
+      - "user_phone_number__2": ${ users[0].phone_number }
+      - "user_email": ${ users[0].email }
+      - "case_number__1": ${ case_number }
+      - "case_number__2": ${ case_number }
+      - "case_number__3": ${ case_number }
+      - "is_trial_by_jury_yes": ${ is_trial_by_jury }
+      - "is_trial_by_jury_no": ${ not is_trial_by_jury }
+      - "e_sign_name__1": ${ users[0].signature if e_signature else '' }
+      - "e_sign_name__2": ${ users[0].signature if e_signature else '' }
+      - "is_email_notice_yes": ${ email_notice }
+
+      - "delivery_party1_name_full": ${ delivery_parties[0].lawyer if delivery_parties[0].is_represented else delivery_parties[0] }
+      - "delivery_party1_mail_address_on_one_line": ${ delivery_parties[0].address.on_one_line() }
+      - "delivery_party1_email": ${ delivery_parties[0].email }
+      - "is_delivery_party1_hand_yes": ${ delivery_parties[0].hand_delivery }
+      - "is_delivery_party1_mail_yes": ${ delivery_parties[0].mail_delivery }
+      - "delivery_party1_mail_from_address": ${ delivery_parties[0].mail_delivery_location }
+      - "is_delivery_party1_carrier_yes": ${ delivery_parties[0].carrier_delivery }
+      - "delivery_party1_carrier_name_and_address": ${ delivery_parties[0].carrier_name + ", " + delivery_parties[0].carrier_location }
+      - "is_delivery_party1_efm_yes": ${ delivery_parties[0].efm_delivery }
+      - "is_delivery_party1_email_yes": ${ delivery_parties[0].email_delivery }
+      - "is_delivery_party1_jail_yes": ${ delivery_parties[0].jail_delivery }
+      - "delivery_jail__1": ${ delivery_parties[0].jail_name }
+      - "delivery_party1_date": ${ delivery_parties[0].delivery_date }
+      - "delivery_party1_time": ${ delivery_parties[0].delivery_time }
+      - "is_delivery_party1_am_yes": ${ delivery_parties[0].delivery_is_am }
+      - "is_delivery_party1_am_no": ${ not delivery_parties[0].delivery_is_am }
+
+
+      - "delivery_party2_name_full": ${ delivery_parties[1].lawyer if delivery_parties[1].is_represented else delivery_parties[1] }
+      - "delivery_party2_mail_address_on_one_line": ${ delivery_parties[1].address.on_one_line() }
+      - "delivery_party2_email": ${ delivery_parties[1].email }
+      - "is_delivery_party2_hand_yes": ${ delivery_parties[1].hand_delivery }
+      - "is_delivery_party2_mail_yes": ${ delivery_parties[1].mail_delivery }
+      - "delivery_party2_mail_from_address": ${ delivery_parties[1].mail_delivery_location }
+      - "delivery_party2_carrier_name_and_address": ${ delivery_parties[1].carrier_name + ", " + delivery_parties[1].carrier_location }
+      - "is_delivery_party2_efm_yes": ${ delivery_parties[1].efm_delivery }
+      - "is_delivery_party2_email_yes": ${ delivery_parties[1].email_delivery }
+      - "is_delivery_party2_jail_yes": ${ delivery_parties[1].jail_delivery }
+      - "delivery_jail__2": ${ delivery_parties[1].jail_name }
+      - "delivery_party2_date": ${ delivery_parties[1].delivery_date }
+      - "delivery_party2_time": ${ delivery_parties[1].delivery_time }
+      - "is_delivery_party2_am_yes": ${ delivery_parties[1].delivery_is_am }
+      - "is_delivery_party2_am_no": ${ not delivery_parties[1].delivery_is_am }
+
+
+      - "delivery_party3_name_full": ${ delivery_parties[2].lawyer if delivery_parties[2].is_represented else delivery_parties[2] }
+      - "delivery_party3_mail_address_on_one_line": ${ delivery_parties[2].address.on_one_line() }
+      - "delivery_party2_email": ${ delivery_parties[2].email }
+      - "is_delivery_party3_hand_yes": ${ delivery_parties[2].hand_delivery }
+      - "is_delivery_party3_mail_yes": ${ delivery_parties[2].mail_delivery }
+      - "delivery_party3_mail_from_address": ${ delivery_parties[2].mail_delivery_location }
+      - "delivery_party3_carrier_name_and_address": ${ delivery_parties[2].carrier_name + ", " + delivery_parties[2].carrier_location }
+      - "is_delivery_party3_efm_yes": ${ delivery_parties[2].efm_delivery }
+      - "is_delivery_party3_email_yes": ${ delivery_parties[2].email_delivery }
+      - "is_delivery_party3_jail_yes": ${ delivery_parties[2].jail_delivery }
+      - "delivery_jail__3": ${ delivery_parties[2].jail_name }
+      - "delivery_party3_date": ${ delivery_parties[2].delivery_date }
+      - "delivery_party3_time": ${ delivery_parties[2].delivery_time }
+      - "is_delivery_party3_am_yes": ${ delivery_parties[2].delivery_is_am }
+      - "is_delivery_party3_am_no": ${ not delivery_parties[2].delivery_is_am }
+
+############### Review page
+---
+id: review screen
+event: review_answers
+question: |
+  Review screen
+subquestion: |
+  Edit your answers below.
+review: 
+  - Edit: user_ask_role
+    button: |
+      **Your role:**
+      ${ user_ask_role }
+  - Edit: users.revisit
+    button: |
+      **Your party's names**:
+
+      % for my_var in users:
+        * ${ my_var }
+      % endfor
+  - Edit: other_parties.revisit
+    button: |
+      **The other party's names**:
+
+      % for my_var in other_parties:
+        * ${ my_var }
+      % endfor
+  - Edit: 
+      - trial_court_index
+      - recompute:
+        - trial_court
+    button: |
+      **County where this case is filed:**
+      ${ trial_court }
+  - Edit: case_number
+    button: |
+      **Case number:**
+      ${ case_number }   
+  - Edit: is_trial_by_jury
+    button: |
+      **Do you want a jury trial?**
+      ${ word(yesno(is_trial_by_jury)) }
+  - Edit: users[0].address.address
+    button: |
+      **What is your address?**
+      ${ users[0].address.on_one_line() }
+  - Edit: users[0].phone_number
+    button: |
+      **What is your phone number?**
+      ${ users[0].phone_number }
+  - Edit: email_notice
+    button: |
+      **Do you want to receive court notices by email?**
+      ${ word(yesno(email_notice)) }
+  - Edit: users[0].email
+    button: |
+      **What is your email?**
+      ${ users[0].email }
+  - Edit: e_signature
+    button: |
+      **Do you want to add your e-signature?**
+      ${ word(yesno(e_signature)) }
+
+---
+continue button field: x.review_delivery
+generic object: ALIndividual
+question: |
+  % if x.is_represented:
+    Edit delivery to ${ x.lawyer }
+  % else:
+    Edit delivery to ${ x }
+  % endif
+review: 
+  - Edit: x
+    button: |
+      **Party name:**
+      ${ x }
+  - Edit: x.is_represented
+    button: |
+      **Does ${ x } have a lawyer?**
+      ${ word(yesno(x.is_represented)) }
+  - Edit: x.lawyer
+    button: |
+      **Lawyer name:**
+      ${ x.lawyer }
+  - Edit: x.hand_delivery
+    button: |
+      **Delivery by:**
+      
+      % if x.hand_delivery == True:
+        * Hand
+      % endif
+      % if x.mail_delivery == True:
+        * US mail
+      % endif
+      % if x.carrier_delivery == True:
+        * Commercial delivery company
+      % endif
+      % if x.efm_delivery == True:
+        * E-filing system
+      % endif
+      % if x.email_delivery == True:
+        * Email
+      % endif
+      % if x.jail_delivery == True:
+        * Mail from a prison or jail
+      % endif
+  - Edit: x.delivery_date
+    button: |
+      **Delivery on:**
+      ${ x.delivery_date } at 
+      ${ x.delivery_time }
+      % if x.delivery_is_am == True:
+        AM
+      % else:
+        PM
+      % endif
+---
+continue button field: users.revisit
+question: |
+  Edit the ${ user_ask_role }s
+subquestion: |
+  ${ users.table }
+
+  ${ users.add_action() }
+---
+table: users.table
+rows: users
+columns:
+  - Name: |
+      row_item.name.full() if defined("row_item.name.first") else ""
+  - Delivery info: |
+      action_button_html(url_action(row_item.attr_name("review_delivery")))
+      # add conditional to above line, something like: if i > 0 else ""
+edit:
+  - name.first
+confirm: True
+---
+continue button field: other_parties.revisit
+question: |
+  % if user_ask_role == "plaintiff":
+    Edit the defendants
+  % else:
+    Edit the plaintiffs
+  % endif
+subquestion: |
+  ${ other_parties.table }
+
+  ${ other_parties.add_action() }
+---
+table: other_parties.table
+rows: other_parties
+columns:
+  - Name: |
+      row_item.name.full() if defined("row_item.name.first") else ""
+  - Delivery info: |
+      action_button_html(url_action(row_item.attr_name("review_delivery")))
+edit:
+  - name.first
+confirm: True
+---
+
