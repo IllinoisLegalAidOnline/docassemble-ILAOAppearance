@@ -274,9 +274,16 @@ yesno: e_signature
 ---
 code: |
   delivery_parties = DAList("delivery_parties", elements = other_parties + users[1:])
-  # changed order to keep it a DAList
-  # .pop(0) will remove user (self) from delivery party list
-  #delivery_parties.pop(0)
+# changed order to keep it a DAList
+# .pop(0) will remove user (self) from delivery party list
+# delivery_parties.pop(0)
+---
+# need to force this code to run after all party info entered (or changed)
+code: |
+  if delivery_parties.count() > 3:
+    delivery_parties_more_than_3 = True
+  else:
+    delivery_parties_more_than_3 = True
 ---
 id: delivery intro
 continue button field: delivery_intro
@@ -386,7 +393,7 @@ fields:
     datatype: yesnowide
   - Email: x.email_delivery
     datatype: yesnowide
-  - Email address: x.email
+  - Email address: x.delivery_email
     datatype: email
     show if: 
       variable: x.email_delivery
@@ -447,7 +454,7 @@ question: |
 subquestion: |
   Here is a preview of your Appearance.   
   
-  ${ al_user_bundle.as_pdf(key='preview') }
+  ${ al_court_bundle.as_pdf(key='preview') }
 
   Click the image to open it in a new tab. Click the "Make changes" button
   to edit your answers.
@@ -456,28 +463,6 @@ subquestion: |
   
   Remember to come back to this window to continue and sign your form.
 continue button field: preview_form  
-
-#---
-#id: get docs screen
-##continue button field: get_docs_screen
-#reconsider: letter
-#question: |
-#  Download
-#subquestion: |
-#  After you get your letter:
-#
-#  1. Sign it,
-#  2. Make a copy, and 
-#  3. Send it by **{Certified Mail :question-circle:}**.
-#
-#  Download your forms
-#  
-#  ${ docs_list([ { "label": 'Instructions', "doc": whats_next } , { "label": 'Collection proof letter', "doc": letter } ]) } 
-#
-#css: ${ docs_list_css() }
-#field: get_docs_screen
-#buttons:
-#  - ${fa_icon("envelope", color="#0079d0", size="sm")} Email your forms: continue
 ---
 id: get docs screen
 #event: illinois_appearance_download
@@ -485,7 +470,7 @@ question: |
   Download
 subquestion: |
   
-  Thank you, ${users[0]}. Your forms are ready to download and deliver.
+  Thank you, ${users[0]}. Your forms are ready to download.
 
   View, download and send your forms below. Click the "Make changes" button to fix any mistakes.
 
@@ -498,6 +483,8 @@ subquestion: |
   This program does not file your Appearance with the court or deliver it to other parties in your case. You will need to do this yourself.
   
   ${ docs_list([ { "label": 'Appearance', "doc": al_user_bundle.as_pdf(key='preview') } ]) } 
+  
+  #${ docs_list([ { "label": 'Instructions', "doc": illinois_appearance_instructions } , { "label": 'Appearance', "doc": illinois_appearance_attachment } ]) }
 
 css: ${ docs_list_css() }
 field: get_docs_screen
@@ -547,37 +534,18 @@ buttons:
   - Exit: exit
 
 
-
-
-#---
-#attachment:
-#  name: Instructions
-#  variable name: whats_next
-#  filename: instructions_collection_proof_letter
-#  docx template file: collection_proof_letter_instructions.docx
-#---
-#attachment:
-#  name: Collection proof letter
-#  variable name: letter
-#  filename: collection_proof_letter
-#  docx template file: collection_proof_letter.docx
-
 ---
 objects:
-  - illinois_appearance_attachment: ALDocument.using(title="This program helps you tell the court and the other parties that you are participating in a court case.", filename="appearance_acrobat_pro_edit_4.pdf", enabled=True, has_addendum=False)
+  - illinois_appearance_attachment: ALDocument.using(title="Appearance", filename="appearance_acrobat_pro_edit_4.pdf", enabled=True, has_addendum=False)
+  - illinois_appearance_instructions: ALDocument.using(title="Instructions", filename="instructions.pdf", enabled=True, has_addendum=False)
 ---
 objects:
-  - al_user_bundle: ALDocumentBundle.using(elements=[illinois_appearance_attachment], filename="illinois_appearance.pdf", title="All forms to download for your records")
-  - al_court_bundle: ALDocumentBundle.using(elements=[illinois_appearance_attachment], filename="illinois_appearance.pdf", title="All forms to download for your records")
+  - al_user_bundle: ALDocumentBundle.using(elements=[illinois_appearance_instructions, illinois_appearance_attachment], filename="illinois_appearance.pdf", title="All forms to download")
+  - al_court_bundle: ALDocumentBundle.using(elements=[illinois_appearance_attachment], filename="illinois_appearance.pdf", title="Appearance")
 ---
-#attachment:
-#  variable name: illinois_appearance_instructions
-#  name: illinois_appearance_instructions
-#  filename: appearance-instructions
-#  skip undefined: True
-#  pdf template file: appearance_instructions.pdf
-#  fields:
-#    -  "empty": ${ "" }
+objects:
+  - illinois_appearance_instructions[i]: DAStaticFile.using(filename="data/templates/appearance_instructions.pdf")
+  # if the PDF is put in the static folder, you can exclude data/templates/ in the filename
 ---
 attachment:
   variable name: illinois_appearance_attachment[i]
@@ -608,9 +576,14 @@ attachment:
       - "e_sign_name__2": ${ users[0].signature if e_signature else '' }
       - "is_email_notice_yes": ${ email_notice }
 
-      - "delivery_party1_name_full": ${ delivery_parties[0].lawyer if delivery_parties[0].is_represented else delivery_parties[0] }
+      - "delivery_party1_name_full": | 
+          % if delivery_parties[0].is_represented:
+          ${ delivery_parties[0].lawyer }, (lawyer for ${ delivery_parties[0] })
+          % else:
+          ${ delivery_parties[0] }
+          % endif
       - "delivery_party1_mail_address_on_one_line": ${ delivery_parties[0].address.on_one_line() }
-      - "delivery_party1_email": ${ delivery_parties[0].email }
+      - "delivery_party1_email": ${ delivery_parties[0].delivery_email }
       - "is_delivery_party1_hand_yes": ${ delivery_parties[0].hand_delivery }
       - "is_delivery_party1_mail_yes": ${ delivery_parties[0].mail_delivery }
       - "delivery_party1_mail_from_address": ${ delivery_parties[0].mail_delivery_location }
@@ -625,13 +598,18 @@ attachment:
       - "is_delivery_party1_am_yes": ${ delivery_parties[0].delivery_is_am }
       - "is_delivery_party1_am_no": ${ not delivery_parties[0].delivery_is_am }
 
-
-      - "delivery_party2_name_full": ${ delivery_parties[1].lawyer if delivery_parties[1].is_represented else delivery_parties[1] }
+      - "delivery_party2_name_full": | 
+          % if delivery_parties[1].is_represented:
+          ${ delivery_parties[1].lawyer }, (lawyer for ${ delivery_parties[1] })
+          % else:
+          ${ delivery_parties[1] }
+          % endif
       - "delivery_party2_mail_address_on_one_line": ${ delivery_parties[1].address.on_one_line() }
-      - "delivery_party2_email": ${ delivery_parties[1].email }
+      - "delivery_party2_email": ${ delivery_parties[1].delivery_email }
       - "is_delivery_party2_hand_yes": ${ delivery_parties[1].hand_delivery }
       - "is_delivery_party2_mail_yes": ${ delivery_parties[1].mail_delivery }
       - "delivery_party2_mail_from_address": ${ delivery_parties[1].mail_delivery_location }
+      - "is_delivery_party2_carrier_yes": ${ delivery_parties[1].carrier_delivery }
       - "delivery_party2_carrier_name_and_address": ${ delivery_parties[1].carrier_name + ", " + delivery_parties[1].carrier_location }
       - "is_delivery_party2_efm_yes": ${ delivery_parties[1].efm_delivery }
       - "is_delivery_party2_email_yes": ${ delivery_parties[1].email_delivery }
@@ -642,13 +620,18 @@ attachment:
       - "is_delivery_party2_am_yes": ${ delivery_parties[1].delivery_is_am }
       - "is_delivery_party2_am_no": ${ not delivery_parties[1].delivery_is_am }
 
-
-      - "delivery_party3_name_full": ${ delivery_parties[2].lawyer if delivery_parties[2].is_represented else delivery_parties[2] }
+      - "delivery_party3_name_full": | 
+          % if delivery_parties[2].is_represented:
+          ${ delivery_parties[2].lawyer }, (lawyer for ${ delivery_parties[2] })
+          % else:
+          ${ delivery_parties[2] }
+          % endif
       - "delivery_party3_mail_address_on_one_line": ${ delivery_parties[2].address.on_one_line() }
-      - "delivery_party2_email": ${ delivery_parties[2].email }
+      - "delivery_party3_email": ${ delivery_parties[2].delivery_email }
       - "is_delivery_party3_hand_yes": ${ delivery_parties[2].hand_delivery }
       - "is_delivery_party3_mail_yes": ${ delivery_parties[2].mail_delivery }
       - "delivery_party3_mail_from_address": ${ delivery_parties[2].mail_delivery_location }
+      - "is_delivery_party3_carrier_yes": ${ delivery_parties[2].carrier_delivery }
       - "delivery_party3_carrier_name_and_address": ${ delivery_parties[2].carrier_name + ", " + delivery_parties[2].carrier_location }
       - "is_delivery_party3_efm_yes": ${ delivery_parties[2].efm_delivery }
       - "is_delivery_party3_email_yes": ${ delivery_parties[2].email_delivery }
@@ -658,7 +641,8 @@ attachment:
       - "delivery_party3_time": ${ delivery_parties[2].delivery_time }
       - "is_delivery_party3_am_yes": ${ delivery_parties[2].delivery_is_am }
       - "is_delivery_party3_am_no": ${ not delivery_parties[2].delivery_is_am }
-
+      - "is_additional_proof_delivery_yes": ${ delivery_parties_more_than_3 }
+     
 ############### Review page
 ---
 id: review screen
